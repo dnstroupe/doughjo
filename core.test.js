@@ -1,0 +1,26 @@
+import test from 'node:test';import assert from 'node:assert/strict';import{donuts,add,move,ready,restore,total,safeDrinks,orderTotal,suggested}from'./core.js';
+test('Roster contains 14 distinct flavors',()=>{assert.equal(donuts.length,14);assert.equal(new Set(donuts.map(d=>d.id)).size,14)});
+test('Every flavor has a positive integer price',()=>assert.ok(donuts.every(d=>Number.isInteger(d.price)&&d.price>0)));
+test('Full box cannot be overfilled',()=>assert.equal(add(Array(6).fill('believe'),'moon',6).length,6));
+test('Unknown flavor cannot enter box',()=>assert.deepEqual(add([],'fake',6),[]));
+test('Repeated flavors are allowed',()=>assert.deepEqual(add(['believe'],'believe',6),['believe','believe']));
+test('Six flavor sample has correct tax and total',()=>assert.deepEqual(total(donuts.slice(0,6).map(d=>d.id)),{subtotal:2750,tax:165,total:2915}));
+test('Empty box has zero total',()=>assert.equal(total([]).total,0));
+test('Moving swaps adjacent positions without mutating source',()=>{const a=['believe','moon'];assert.deepEqual(move(a,0,1),['moon','believe']);assert.deepEqual(a,['believe','moon'])});
+test('Out of range moves do nothing',()=>assert.deepEqual(move(['moon'],0,2),['moon']));
+test('Incomplete box cannot proceed',()=>assert.equal(ready(['moon'],6),false));
+test('Full valid box can proceed',()=>assert.ok(ready(Array(6).fill('moon'),6)));
+test('Unavailable flavor blocks full box',()=>assert.equal(ready(Array(6).fill('moon'),6,['moon']),false));
+test('Invalid IDs cannot proceed',()=>assert.equal(ready(Array(6).fill('fake'),6),false));
+test('Malformed saved state recovers safely',()=>{assert.deepEqual(restore('{'),{size:6,box:[]});assert.deepEqual(restore('null'),{size:6,box:[]})});
+test('Unknown saved flavors are removed',()=>assert.deepEqual(restore(JSON.stringify({size:6,box:['moon',null,'fake']})),{size:6,box:['moon']}));
+test('Oversized saved box is limited',()=>assert.equal(restore(JSON.stringify({size:6,box:Array(20).fill('moon')})).box.length,6));
+test('Unsupported box size resets safely',()=>assert.deepEqual(restore(JSON.stringify({size:9,box:['moon']})),{size:6,box:[]}));
+test('Twelve flavor box restores intact',()=>assert.equal(restore(JSON.stringify({size:12,box:Array(12).fill('moon')})).box.length,12));
+
+test('Drink state rejects unknown and invalid quantities',()=>assert.deepEqual(safeDrinks({coffee:2,matcha:-1,yuzu:1.5,fake:3}),{coffee:2}));
+test('Drink state caps quantities and handles null',()=>{assert.deepEqual(safeDrinks({matcha:99}),{matcha:12});assert.deepEqual(safeDrinks(null),{})});
+test('Mixed order combines prices before rounding tax',()=>assert.deepEqual(orderTotal(donuts.slice(0,6).map(d=>d.id),{matcha:1}),{donutSubtotal:2750,drinkSubtotal:550,subtotal:3300,tax:198,total:3498}));
+test('Suggestion fills box and excludes unavailable flavors',()=>{const a=suggested(12,['limitless']);assert.equal(a.length,12);assert.ok(!a.includes('limitless'))});
+test('Filtered suggestions use only requested flavor family',()=>assert.ok(suggested(6,[],'Fruity').every(id=>donuts.find(d=>d.id===id).family==='Fruity')));
+test('No available flavors produces empty suggestion',()=>assert.deepEqual(suggested(6,donuts.map(d=>d.id)),[]));
